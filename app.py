@@ -1,5 +1,5 @@
 """
-Sonsu Capital — Performance Dashboard
+Sonsu Research — Performance Dashboard
 Streamlit app  ·  fake_data.py drives template data
 Swap FakeDataSource → IBKRFlexSource in ibkr_client.py to go live.
 """
@@ -17,7 +17,7 @@ from fake_data import FakeDataSource
 # Page config
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Sonsu Capital",
+    page_title="Sonsu Research",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -238,7 +238,7 @@ def fmt_pct(v, d=1): return f"{'+'if v>0 else ''}{v:.{d}f}%"
 with st.sidebar:
     st.markdown(f"""
     <div style="margin-bottom:1.4rem">
-      <div style="font-family:'EB Garamond',serif;font-size:1.3rem;font-weight:500;color:{C['text']}">Sonsu Capital</div>
+      <div style="font-family:'EB Garamond',serif;font-size:1.3rem;font-weight:500;color:{C['text']}">Sonsu Research</div>
       <div style="font-size:0.68rem;letter-spacing:0.07em;text-transform:uppercase;color:{C['gray']}">Performance Dashboard</div>
       <div style="width:2rem;height:2px;background:{C['primary']};margin-top:0.5rem"></div>
     </div>""", unsafe_allow_html=True)
@@ -289,7 +289,7 @@ stats  = compute_stats(trades, equity, NAV0)
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="page-title">Performance Dashboard</div>
-<div class="page-sub">Sonsu Capital · Asia-Pacific Research · Personal Account · $1,000</div>
+<div class="page-sub">Sonsu Research · Asia-Pacific Research · Personal Account · $1,000</div>
 <div class="accent-bar"></div>
 """, unsafe_allow_html=True)
 
