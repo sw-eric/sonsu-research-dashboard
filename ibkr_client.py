@@ -83,19 +83,35 @@ class IBKRFlexSource:
         return self._parse_trades()
 
     def get_equity_curve(self) -> pd.DataFrame:
-        # Build from NAV entries in Flex Report (EquitySummaryByReportDateInBase)
+        # Try EquitySummaryByReportDateInBase first
         rows = []
         for node in self._xml.iter("EquitySummaryByReportDateInBase"):
             rows.append(dict(
                 date = pd.to_datetime(node.attrib.get("reportDate")),
                 nav  = float(node.attrib.get("total", 0)),
             ))
-        df = pd.DataFrame(rows).sort_values("date")
-        if not df.empty:
+        if rows:
+            df = pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
             df["daily_return"] = df["nav"].pct_change().fillna(0)
             roll_max = df["nav"].cummax()
             df["drawdown"] = (df["nav"] - roll_max) / roll_max * 100
-        return df
+            return df
+
+        # Fall back: build curve from closed trades
+        trades = self._parse_trades()
+        if trades.empty:
+            return pd.DataFrame(columns=["date", "nav", "daily_return", "drawdown"])
+        nav0 = self.get_initial_nav()
+        date_range = pd.date_range(start=trades["close_date"].min(), end=trades["close_date"].max(), freq="B")
+        daily_pnl  = trades.groupby("close_date")["net_pnl"].sum().reindex(date_range, fill_value=0)
+        nav        = nav0 + daily_pnl.cumsum()
+        roll_max   = nav.cummax()
+        return pd.DataFrame({
+            "date":         date_range,
+            "nav":          nav.values,
+            "daily_return": nav.pct_change().fillna(0).values,
+            "drawdown":     ((nav - roll_max) / roll_max * 100).values,
+        })
 
     def get_open_positions(self) -> pd.DataFrame:
         rows = []
