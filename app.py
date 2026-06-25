@@ -161,29 +161,31 @@ st.markdown(f"""
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=1800)
 def load_data():
-    try:
-        src    = IBKRFlexSource()
-        trades = src.get_closed_trades()
-        equity = src.get_equity_curve()
-        pos    = src.get_open_positions()
-        nav0   = src.get_initial_nav()
-        return trades, equity, pos, nav0, None
-    except Exception as e:
-        empty_trades = __import__("pandas").DataFrame(columns=[
-            "trade_id","symbol","name","sector","region","currency","direction",
-            "open_date","close_date","duration","quantity","open_price","close_price",
-            "gross_pnl","commission","net_pnl","theme",
-        ])
-        empty_equity = __import__("pandas").DataFrame(columns=["date","nav","daily_return","drawdown"])
-        empty_pos    = __import__("pandas").DataFrame(columns=[
-            "symbol","name","sector","region","direction","quantity",
-            "avg_cost","current_price","market_value","unrealized_pnl","theme",
-        ])
-        return empty_trades, empty_equity, empty_pos, 1_000.0, str(e)
+    # Exceptions propagate uncaught so failures are NOT cached —
+    # only successful fetches get the 30-min cache.
+    src    = IBKRFlexSource()
+    trades = src.get_closed_trades()
+    equity = src.get_equity_curve()
+    pos    = src.get_open_positions()
+    nav0   = src.get_initial_nav()
+    return trades, equity, pos, nav0
 
-trades_raw, equity_raw, positions, NAV0, _ibkr_error = load_data()
-if _ibkr_error:
-    st.warning(f"⚠️ Could not load IBKR data — {_ibkr_error}", icon="⚠️")
+_empty_trades = pd.DataFrame(columns=[
+    "trade_id","symbol","name","sector","region","currency","direction",
+    "open_date","close_date","duration","quantity","open_price","close_price",
+    "gross_pnl","commission","net_pnl","theme",
+])
+_empty_equity = pd.DataFrame(columns=["date","nav","daily_return","drawdown"])
+_empty_pos    = pd.DataFrame(columns=[
+    "symbol","name","sector","region","direction","quantity",
+    "avg_cost","current_price","market_value","unrealized_pnl","theme",
+])
+
+try:
+    trades_raw, equity_raw, positions, NAV0 = load_data()
+except Exception as e:
+    trades_raw, equity_raw, positions, NAV0 = _empty_trades, _empty_equity, _empty_pos, 1_000.0
+    st.warning(f"⚠️ Could not load IBKR data — {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
