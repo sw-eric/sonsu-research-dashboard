@@ -40,48 +40,29 @@ class IBKRFlexSource:
     def _fetch_flex_statement(self) -> ET.Element:
         import time
 
-        # Step 1: request the statement — retry up to 4 times for transient errors
-        ref_code = None
-        for attempt in range(4):
-            r = requests.get(FLEX_URL, params={"t": self._token, "q": self._query_id, "v": 3}, timeout=30)
-            r.raise_for_status()
-            root = ET.fromstring(r.text)
-            status = root.findtext("Status") or root.findtext(".//Status")
-            if status == "Success":
-                ref_code = root.findtext("ReferenceCode") or root.findtext(".//ReferenceCode")
-                break
-            err = root.findtext("ErrorMessage") or root.findtext(".//ErrorMessage") or ""
-            # Transient errors — wait and retry
-            if "try again" in err.lower() or "too many" in err.lower() or "could not be generated" in err.lower():
-                if attempt < 3:
-                    time.sleep(15)
-                    continue
-            raise RuntimeError(f"IBKR Flex Step 1 failed — {err}")
-
-        if not ref_code:
-            raise RuntimeError(f"IBKR Flex Step 1: no ReferenceCode in response — {r.text[:400]}")
-
+        # Step 1: request the statement
+        r = requests.get(FLEX_URL, params={"t": self._token, "q": self._query_id, "v": 3}, timeout=30)
+        r.raise_for_status()
+        root = ET.fromstring(r.text)
+        status = root.findtext("Status") or root.findtext(".//Status")
+        if status != "Success":
+            err = root.findtext("ErrorMessage") or root.findtext(".//ErrorMessage") or r.text[:300]
+            raise RuntimeError(f"IBKR: {err}")
         ref_code = root.findtext("ReferenceCode") or root.findtext(".//ReferenceCode")
         if not ref_code:
-            raise RuntimeError(f"IBKR Flex Step 1: no ReferenceCode in response — {r.text[:400]}")
+            raise RuntimeError(f"IBKR Step 1: no ReferenceCode — {r.text[:300]}")
 
-        # Step 2: poll until the report is ready (up to ~60s)
-        for attempt in range(12):
+        # Step 2: poll up to 30s for the report to generate
+        for _ in range(6):
             time.sleep(5)
             r2 = requests.get(GET_URL, params={"t": self._token, "q": ref_code, "v": 3}, timeout=30)
             r2.raise_for_status()
             root2 = ET.fromstring(r2.text)
-            # Still generating — IBKR returns another FlexStatementResponse
             if root2.tag == "FlexStatementResponse":
-                status2 = root2.findtext("Status") or ""
-                err2    = root2.findtext("ErrorMessage") or ""
-                # Warn = still in progress; retry
-                if status2 == "Warn" or "try again" in err2.lower() or "in progress" in err2.lower():
-                    continue
-                raise RuntimeError(f"IBKR Flex Step 2 failed — {status2!r} | {err2 or r2.text[:400]}")
+                continue  # still generating
             return root2
 
-        raise RuntimeError("IBKR Flex report not ready after 60 seconds — reboot the app to retry.")
+        raise RuntimeError("IBKR report not ready after 30s — try refreshing.")
 
     def _parse_trades(self) -> pd.DataFrame:
         rows = []

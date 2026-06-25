@@ -186,6 +186,9 @@ try:
 except Exception as e:
     trades_raw, equity_raw, positions, NAV0 = _empty_trades, _empty_equity, _empty_pos, 1_000.0
     st.warning(f"⚠️ Could not load IBKR data — {e}")
+    if st.button("🔄 Retry", key="retry_ibkr"):
+        st.cache_data.clear()
+        st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
