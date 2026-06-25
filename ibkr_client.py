@@ -74,10 +74,11 @@ class IBKRFlexSource:
             # Still generating — IBKR returns another FlexStatementResponse
             if root2.tag == "FlexStatementResponse":
                 status2 = root2.findtext("Status") or ""
-                if "not available" in status2.lower() or "try again" in status2.lower():
+                err2    = root2.findtext("ErrorMessage") or ""
+                # Warn = still in progress; retry
+                if status2 == "Warn" or "try again" in err2.lower() or "in progress" in err2.lower():
                     continue
-                err2 = root2.findtext("ErrorMessage") or r2.text[:400]
-                raise RuntimeError(f"IBKR Flex Step 2 failed — {status2!r} | {err2}")
+                raise RuntimeError(f"IBKR Flex Step 2 failed — {status2!r} | {err2 or r2.text[:400]}")
             return root2
 
         raise RuntimeError("IBKR Flex report not ready after 60 seconds — reboot the app to retry.")
