@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
 
-from fake_data import FakeDataSource
+from ibkr_client import IBKRFlexSource
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page config
@@ -161,7 +161,7 @@ st.markdown(f"""
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def load_data():
-    src    = FakeDataSource(seed=42)
+    src    = IBKRFlexSource()
     trades = src.get_closed_trades()
     equity = src.get_equity_curve()
     pos    = src.get_open_positions()
