@@ -161,14 +161,29 @@ st.markdown(f"""
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def load_data():
-    src    = IBKRFlexSource()
-    trades = src.get_closed_trades()
-    equity = src.get_equity_curve()
-    pos    = src.get_open_positions()
-    nav0   = src.get_initial_nav()
-    return trades, equity, pos, nav0
+    try:
+        src    = IBKRFlexSource()
+        trades = src.get_closed_trades()
+        equity = src.get_equity_curve()
+        pos    = src.get_open_positions()
+        nav0   = src.get_initial_nav()
+        return trades, equity, pos, nav0, None
+    except Exception as e:
+        empty_trades = __import__("pandas").DataFrame(columns=[
+            "trade_id","symbol","name","sector","region","currency","direction",
+            "open_date","close_date","duration","quantity","open_price","close_price",
+            "gross_pnl","commission","net_pnl","theme",
+        ])
+        empty_equity = __import__("pandas").DataFrame(columns=["date","nav","daily_return","drawdown"])
+        empty_pos    = __import__("pandas").DataFrame(columns=[
+            "symbol","name","sector","region","direction","quantity",
+            "avg_cost","current_price","market_value","unrealized_pnl","theme",
+        ])
+        return empty_trades, empty_equity, empty_pos, 1_000.0, str(e)
 
-trades_raw, equity_raw, positions, NAV0 = load_data()
+trades_raw, equity_raw, positions, NAV0, _ibkr_error = load_data()
+if _ibkr_error:
+    st.warning(f"⚠️ Could not load IBKR data — {_ibkr_error}", icon="⚠️")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -251,21 +266,21 @@ with st.sidebar:
         from datetime import date, timedelta
         max_date = date.today()
         min_date = max_date - timedelta(days=365)
-    date_range = st.date_input("", value=(min_date, max_date), min_value=min_date, max_value=max_date, label_visibility="collapsed")
+    date_range = st.date_input("", value=(min_date, max_date), min_value=min_date, max_value=max_date, label_visibility="collapsed", key="date_range")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Region</div>", unsafe_allow_html=True)
     region_opts = sorted(trades_raw["region"].unique()) if not trades_raw.empty else []
-    sel_region = st.selectbox("", ["All"] + region_opts, label_visibility="collapsed")
+    sel_region = st.selectbox("", ["All"] + region_opts, label_visibility="collapsed", key="sel_region")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Theme</div>", unsafe_allow_html=True)
     theme_opts = sorted(trades_raw["theme"].unique()) if not trades_raw.empty else []
-    sel_theme = st.selectbox("", ["All"] + theme_opts, label_visibility="collapsed")
+    sel_theme = st.selectbox("", ["All"] + theme_opts, label_visibility="collapsed", key="sel_theme")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Direction</div>", unsafe_allow_html=True)
-    sel_dir = st.selectbox("", ["All", "Long", "Short"], label_visibility="collapsed")
+    sel_dir = st.selectbox("", ["All", "Long", "Short"], label_visibility="collapsed", key="sel_dir")
 
     st.markdown("---")
     st.markdown(f"""<div style="font-size:0.72rem;color:{C['gray']}">
@@ -454,7 +469,7 @@ with tab_trades:
                 if val>0: return f"color:{C['profit']};font-weight:500"
                 if val<0: return f"color:{C['loss']};font-weight:500"
             return ""
-        styled = display.style.applymap(_style, subset=["Net P&L","Gross P&L"]) \
+        styled = display.style.map(_style, subset=["Net P&L","Gross P&L"]) \
             .format({"Open $":"${:,.2f}","Close $":"${:,.2f}",
                      "Gross P&L":"${:+,.2f}","Comm":"${:.2f}","Net P&L":"${:+,.2f}"}) \
             .set_properties(**{"font-size":"0.8rem"})
@@ -592,7 +607,7 @@ with tab_positions:
             "region":"Region","direction":"Dir","quantity":"Qty","avg_cost":"Avg Cost",
             "current_price":"Last $","market_value":"Mkt Val","unrealized_pnl":"Unreal P&L","theme":"Theme"})
         styled_pos = pos_disp.style \
-            .applymap(lambda v: f"color:{C['profit']};font-weight:500" if isinstance(v,(int,float)) and v>0
+            .map(lambda v: f"color:{C['profit']};font-weight:500" if isinstance(v,(int,float)) and v>0
                        else (f"color:{C['loss']};font-weight:500" if isinstance(v,(int,float)) and v<0 else ""),
                        subset=["Unreal P&L"]) \
             .format({"Avg Cost":"${:,.2f}","Last $":"${:,.2f}","Mkt Val":"${:,.2f}","Unreal P&L":"${:+,.2f}"}) \
