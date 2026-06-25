@@ -73,9 +73,14 @@ class IBKRFlexSource:
                 net_pnl     = float(a.get("fifoPnlRealized", 0)) + float(a.get("ibCommission", 0)),
                 theme       = "Untagged",
             ))
+        if not rows:
+            return pd.DataFrame(columns=[
+                "trade_id","symbol","name","sector","region","currency","direction",
+                "open_date","close_date","duration","quantity","open_price","close_price",
+                "gross_pnl","commission","net_pnl","theme",
+            ])
         df = pd.DataFrame(rows)
-        if not df.empty:
-            df["duration"] = (df["close_date"] - df["open_date"]).dt.days
+        df["duration"] = (df["close_date"] - df["open_date"]).dt.days
         return df
 
     # ── Public API ────────────────────────────────────────────────────────────

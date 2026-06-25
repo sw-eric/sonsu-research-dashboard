@@ -244,17 +244,24 @@ with st.sidebar:
     </div>""", unsafe_allow_html=True)
 
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Date Range</div>", unsafe_allow_html=True)
-    all_dates  = pd.to_datetime(trades_raw["close_date"])
-    min_date, max_date = all_dates.min().date(), all_dates.max().date()
+    if not trades_raw.empty:
+        all_dates  = pd.to_datetime(trades_raw["close_date"])
+        min_date, max_date = all_dates.min().date(), all_dates.max().date()
+    else:
+        from datetime import date, timedelta
+        max_date = date.today()
+        min_date = max_date - timedelta(days=365)
     date_range = st.date_input("", value=(min_date, max_date), min_value=min_date, max_value=max_date, label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Region</div>", unsafe_allow_html=True)
-    sel_region = st.selectbox("", ["All"] + sorted(trades_raw["region"].unique()), label_visibility="collapsed")
+    region_opts = sorted(trades_raw["region"].unique()) if not trades_raw.empty else []
+    sel_region = st.selectbox("", ["All"] + region_opts, label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Theme</div>", unsafe_allow_html=True)
-    sel_theme = st.selectbox("", ["All"] + sorted(trades_raw["theme"].unique()), label_visibility="collapsed")
+    theme_opts = sorted(trades_raw["theme"].unique()) if not trades_raw.empty else []
+    sel_theme = st.selectbox("", ["All"] + theme_opts, label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;color:{C['gray']};margin-bottom:0.4rem'>Direction</div>", unsafe_allow_html=True)
