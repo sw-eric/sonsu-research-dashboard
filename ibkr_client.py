@@ -40,15 +40,26 @@ class IBKRFlexSource:
     def _fetch_flex_statement(self) -> ET.Element:
         import time
 
-        # Step 1: request the statement
-        r = requests.get(FLEX_URL, params={"t": self._token, "q": self._query_id, "v": 3}, timeout=30)
-        r.raise_for_status()
-        root = ET.fromstring(r.text)
+        # Step 1: request the statement — retry up to 4 times for transient errors
+        ref_code = None
+        for attempt in range(4):
+            r = requests.get(FLEX_URL, params={"t": self._token, "q": self._query_id, "v": 3}, timeout=30)
+            r.raise_for_status()
+            root = ET.fromstring(r.text)
+            status = root.findtext("Status") or root.findtext(".//Status")
+            if status == "Success":
+                ref_code = root.findtext("ReferenceCode") or root.findtext(".//ReferenceCode")
+                break
+            err = root.findtext("ErrorMessage") or root.findtext(".//ErrorMessage") or ""
+            # Transient errors — wait and retry
+            if "try again" in err.lower() or "too many" in err.lower() or "could not be generated" in err.lower():
+                if attempt < 3:
+                    time.sleep(15)
+                    continue
+            raise RuntimeError(f"IBKR Flex Step 1 failed — {err}")
 
-        status = root.findtext("Status") or root.findtext(".//Status")
-        if status != "Success":
-            err = root.findtext("ErrorMessage") or root.findtext(".//ErrorMessage") or r.text[:400]
-            raise RuntimeError(f"IBKR Flex Step 1 failed — Status: {status!r} | {err}")
+        if not ref_code:
+            raise RuntimeError(f"IBKR Flex Step 1: no ReferenceCode in response — {r.text[:400]}")
 
         ref_code = root.findtext("ReferenceCode") or root.findtext(".//ReferenceCode")
         if not ref_code:
